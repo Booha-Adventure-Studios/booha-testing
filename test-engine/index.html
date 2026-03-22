@@ -166,6 +166,12 @@
       try {
         if (!window.TEST_PACK) throw new Error("TEST_PACK not loaded.");
         if (!window.TEST_ENGINE) throw new Error("TEST_ENGINE not loaded.");
+
+        console.log("TEST_PACK =", window.TEST_PACK);
+        console.log("questions =", window.TEST_PACK?.questions);
+        console.log("isArray =", Array.isArray(window.TEST_PACK?.questions));
+        console.log("length =", window.TEST_PACK?.questions?.length);
+        
         window.TEST_ENGINE.initEngine(window.TEST_PACK);
       } catch (err) {
         const app = document.getElementById("app");
