@@ -1,29 +1,103 @@
 
 window.TEST_SCORING = (() => {
-  function scoreSession(session, pack) {
-    if (!session) throw new Error("Session is required.");
-    if (!pack) throw new Error("Pack is required.");
+     function scoreSession(session, pack) {
+  if (!session) throw new Error("Session is required.");
+  if (!pack) throw new Error("Pack is required.");
 
-    const questionResults = buildQuestionResults(session, pack);
-    const sectionResults = buildSectionResults(questionResults, pack);
-    const skillResults = buildSkillResults(questionResults);
-    const behaviorSummary = buildBehaviorSummary(questionResults, pack);
+  // 1. Base layer (your current system)
+  const questionResults = buildQuestionResults(session, pack);
 
-    const totalCorrect = questionResults.filter((q) => q.isCorrect).length;
-    const totalQuestions = questionResults.length;
-    const scorePercent = percent(totalCorrect, totalQuestions);
+  // 2. Core breakdowns
+  const sectionResults = buildSectionResults(questionResults, pack);
+  const skillResults = buildSkillResults(questionResults);
 
-    return buildFinalResult(session, pack, {
-      totalCorrect,
-      totalQuestions,
-      scorePercent,
-      questionResults,
-      sectionResults,
-      skillResults,
-      behaviorSummary
-    });
-  }
+  // 3. NEW: behavior + timing pulled from session (NOT questionResults)
+  const behaviorSummary = buildBehaviorSummary(session, questionResults);
+  const timingSummary = buildTimingSummary(session);
+  const stabilitySummary = buildStabilitySummary(session);
 
+  // 4. Core score
+  const totalCorrect = questionResults.filter(q => q.isCorrect).length;
+  const totalQuestions = questionResults.length;
+  const scorePercent = percent(totalCorrect, totalQuestions);
+
+  // 5. Final object (expanded, future-proof)
+  return buildFinalResult(session, pack, {
+    totalCorrect,
+    totalQuestions,
+    scorePercent,
+    questionResults,
+    sectionResults,
+    skillResults,
+    behaviorSummary,
+    timingSummary,
+    stabilitySummary
+  });
+}
+
+
+  function buildBehaviorSummary(session, questionResults) {
+  let totalChanges = 0;
+  let totalRevisits = 0;
+  let totalFlags = Object.keys(session.flags || {}).length;
+
+  Object.values(session.questionStats || {}).forEach(q => {
+    totalChanges += q.changes || 0;
+    totalRevisits += q.revisits || 0;
+  });
+
+  return {
+    totalChanges,
+    totalRevisits,
+    totalFlags
+  };
+}
+
+  function buildTimingSummary(session) {
+  let totalTime = 0;
+  let count = 0;
+  let fast = 0;
+  let slow = 0;
+
+  Object.values(session.questionStats || {}).forEach(q => {
+    const t = q.timeSpent || 0;
+
+    totalTime += t;
+    count++;
+
+    if (t < 2) fast++;
+    if (t > 8) slow++;
+  });
+
+  return {
+    totalTime,
+    avgTime: count ? totalTime / count : 0,
+    fastAnswers: fast,
+    slowAnswers: slow
+  };
+}
+
+  function buildStabilitySummary(session) {
+  let stable = 0;
+  let unstable = 0;
+
+  Object.values(session.questionStats || {}).forEach(q => {
+    if ((q.changes || 0) === 0) {
+      stable++;
+    } else {
+      unstable++;
+    }
+  });
+
+  return {
+    stableAnswers: stable,
+    unstableAnswers: unstable
+  };
+}
+
+
+
+  
   function buildQuestionResults(session, pack) {
     return pack.questions.map((question) => {
       const stats = session.questionStats[question.questionId] || makeEmptyQuestionStats(question.questionId);
