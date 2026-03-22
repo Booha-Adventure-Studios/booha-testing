@@ -1,6 +1,6 @@
 
 window.TEST_PACK = {
-  packId: "eiken_4_v1",
+  packId: "eiken4_v1",
   examType: "EIKEN",
   level: "4",
   title: "EIKEN Grade 4 Diagnostic Test",
