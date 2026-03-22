@@ -111,6 +111,28 @@ window.TEST_SCORING = (() => {
       const expectedPerQuestionSec = section?.expectedPerQuestionSec || 0;
       const tooLongLevel = getTooLongLevel(stats.totalTimeSpentSec, expectedPerQuestionSec);
 
+      const speedCategory =
+  stats.totalTimeSpentSec < 2 ? "fast" :
+  stats.totalTimeSpentSec > expectedPerQuestionSec * 1.5 ? "slow" :
+  "normal";
+
+const decisionType =
+  !isCorrect && speedCategory === "fast" ? "fast_guess" :
+  !isCorrect && speedCategory === "slow" ? "slow_confusion" :
+  isCorrect && speedCategory === "slow" ? "slow_correct" :
+  "normal";   
+
+         const confidenceLevel =
+  stats.answerChangeCount === 0 && isCorrect ? "confident_correct" :
+  stats.answerChangeCount > 0 && isCorrect ? "correct_after_change" :
+  stats.answerChangeCount > 1 && !isCorrect ? "unstable_wrong" :
+  "normal";
+
+         const struggle =
+  stats.totalTimeSpentSec > expectedPerQuestionSec * 2 ||
+  stats.answerChangeCount >= 2 ||
+  stats.visitCount > 2;
+
       return {
         questionId: question.questionId,
         number: question.number,
@@ -124,6 +146,12 @@ window.TEST_SCORING = (() => {
         correctIndex: question.correctIndex,
         isAnswered: finalAnswerIndex !== null && finalAnswerIndex !== undefined,
         isCorrect,
+        speedCategory,
+        decisionType,
+        speedCategory,
+        decisionType,
+        confidenceLevel,
+        struggle,   
 
         visitCount: stats.visitCount || 0,
         revisited: (stats.visitCount || 0) > 1,
