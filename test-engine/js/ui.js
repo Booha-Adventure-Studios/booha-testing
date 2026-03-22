@@ -170,92 +170,91 @@ window.TEST_UI = (() => {
     }
   }
 
-  function renderResultScreen(result, session) {
-    const root = getRoot();
+function renderResultScreen(result, session) {
+  const root = getRoot();
 
-    if (!result) {
-      root.innerHTML = `
-        <div class="screen result-screen">
-          <div class="card">
-            <h1>Test Submitted</h1>
-            <p>No result data available.</p>
-          </div>
-        </div>
-      `;
-      return;
-    }
-
-    const sectionRows = (result.sectionResults || [])
-      .map(
-        (section) => `
-          <tr>
-            <td>${escapeHtml(section.title || section.sectionId)}</td>
-            <td>${section.correct} / ${section.total}</td>
-            <td>${section.percent}%</td>
-          </tr>
-        `
-      )
-      .join("");
-
-    const skillRows = (result.skillResults || [])
-      .map(
-        (skill) => `
-          <tr>
-            <td>${escapeHtml(skill.skill)}</td>
-            <td>${escapeHtml(skill.subskill)}</td>
-            <td>${skill.correct} / ${skill.total}</td>
-            <td>${skill.percent}%</td>
-          </tr>
-        `
-      )
-      .join("");
-
-    root.innerHTML = `
-      <div class="screen result-screen">
-        <div class="card">
-          <h1>Test Result</h1>
-
-          <p><strong>Student:</strong> ${escapeHtml(session.studentName || "-")}</p>
-          <p><strong>PIN:</strong> ${escapeHtml(session.studentPin || "-")}</p>
-          <p><strong>Submitted:</strong> ${escapeHtml(session.finishedAtTokyo || "-")}</p>
-
-          <hr />
-
-          <p><strong>Score:</strong> ${result.totalCorrect} / ${result.totalQuestions} (${result.scorePercent}%)</p>
-          <p><strong>Time Used:</strong> ${formatTime(result.durationSec || 0)}</p>
-
-          <h2>Sections</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Section</th>
-                <th>Score</th>
-                <th>%</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${sectionRows}
-            </tbody>
-          </table>
-
-          <h2>Skills</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Skill</th>
-                <th>Subskill</th>
-                <th>Score</th>
-                <th>%</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${skillRows}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
+  if (!result) {
+    root.innerHTML = `<div class="card"><h1>No result data</h1></div>`;
+    return;
   }
+
+  // 🔥 LEARNER CLASSIFICATION
+  const learnerType = classifyLearner(result);
+
+  const sectionRows = (result.sectionResults || [])
+    .map(s => `
+      <tr>
+        <td>${escapeHtml(s.title)}</td>
+        <td>${s.correct}/${s.total}</td>
+        <td>${s.percent}%</td>
+      </tr>
+    `).join("");
+
+  const skillRows = (result.skillResults || [])
+    .map(s => `
+      <tr>
+        <td>${escapeHtml(s.skill)}</td>
+        <td>${escapeHtml(s.subskill)}</td>
+        <td>${s.correct}/${s.total}</td>
+        <td>${s.percent}%</td>
+      </tr>
+    `).join("");
+
+  root.innerHTML = `
+    <div class="screen result-screen">
+      <div class="card">
+
+        <h1>Test Result</h1>
+
+        <p><strong>Student:</strong> ${escapeHtml(session.studentName || "-")}</p>
+        <p><strong>Score:</strong> ${result.totalCorrect}/${result.totalQuestions} (${result.scorePercent}%)</p>
+        <p><strong>Time:</strong> ${formatTime(result.durationSec)}</p>
+
+        <hr/>
+
+        <h2>Learner Type</h2>
+        <p><strong>${learnerType.type}</strong></p>
+        <p>${learnerType.description}</p>
+
+        <hr/>
+
+        <h2>Behavior</h2>
+        <p>Changes: ${result.behavior.totalChanges}</p>
+        <p>Revisits: ${result.behavior.totalRevisits}</p>
+        <p>Flags: ${result.behavior.totalFlags}</p>
+        <p>Struggles: ${result.behavior.struggleCount}</p>
+        <p>Fast Guesses: ${result.behavior.fastGuessCount}</p>
+
+        <h2>Timing</h2>
+        <p>Total Time: ${formatTime(result.timing.totalTime)}</p>
+        <p>Average: ${result.timing.avgTime.toFixed(1)}s</p>
+        <p>Fast Answers: ${result.timing.fast}</p>
+        <p>Slow Answers: ${result.timing.slow}</p>
+
+        <h2>Stability</h2>
+        <p>Stable: ${result.stability.stable}</p>
+        <p>Unstable: ${result.stability.unstable}</p>
+
+        <hr/>
+
+        <h2>Sections</h2>
+        <table>
+          <tr><th>Section</th><th>Score</th><th>%</th></tr>
+          ${sectionRows}
+        </table>
+
+        <h2>Skills</h2>
+        <table>
+          <tr><th>Skill</th><th>Sub</th><th>Score</th><th>%</th></tr>
+          ${skillRows}
+        </table>
+
+      </div>
+    </div>
+  `;
+}
+
+  
 
   function getSectionTitle(pack, sectionId) {
     const section = pack.sections.find((s) => s.sectionId === sectionId);
@@ -277,6 +276,50 @@ window.TEST_UI = (() => {
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#39;");
   }
+
+
+  function classifyLearner(result) {
+  const b = result.behavior;
+  const t = result.timing;
+  const s = result.stability;
+
+  // 🔥 Fast guesser
+  if (b.fastGuessCount > result.totalQuestions * 0.3) {
+    return {
+      type: "Fast Guesser",
+      description: "Answers quickly but accuracy drops. Likely guessing instead of processing."
+    };
+  }
+
+  // 🔥 Overthinker
+  if (t.slow > result.totalQuestions * 0.4 && s.unstable > s.stable) {
+    return {
+      type: "Overthinker",
+      description: "Spends too long and changes answers often. Knowledge exists but confidence is low."
+    };
+  }
+
+  // 🔥 Careful + accurate
+  if (t.slow > result.totalQuestions * 0.3 && result.scorePercent > 70) {
+    return {
+      type: "Careful Processor",
+      description: "Takes time but understands well. Strong but not automatic yet."
+    };
+  }
+
+  // 🔥 Stable learner
+  if (s.stable > s.unstable && result.scorePercent > 70) {
+    return {
+      type: "Stable Performer",
+      description: "Consistent answers with solid accuracy. Good confidence and understanding."
+    };
+  }
+
+  return {
+    type: "Developing Learner",
+    description: "Mixed performance. Needs more repetition and structured practice."
+  };
+}
 
   return {
     renderStartScreen,
